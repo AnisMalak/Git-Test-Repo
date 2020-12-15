@@ -1,0 +1,495 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/test">
+  <collaboration id="Collaboration">
+    <participant id="pool1" name="Propose Dataset" processRef="datasetProposal"></participant>
+  </collaboration>
+  <process id="datasetProposal" name="Propose Dataset" isExecutable="true">
+    <laneSet id="laneSet_datasetProposal">
+      <lane id="lane1" name="Business Steward">
+        <flowNodeRef>startevent1</flowNodeRef>
+        <flowNodeRef>scripttask2</flowNodeRef>
+        <flowNodeRef>usertask2</flowNodeRef>
+        <flowNodeRef>scripttask3</flowNodeRef>
+        <flowNodeRef>startevent1</flowNodeRef>
+        <flowNodeRef>usertask3</flowNodeRef>
+        <flowNodeRef>scripttask4</flowNodeRef>
+        <flowNodeRef>scripttask5</flowNodeRef>
+        <flowNodeRef>usertask4</flowNodeRef>
+        <flowNodeRef>scripttask6</flowNodeRef>
+        <flowNodeRef>endevent1</flowNodeRef>
+      </lane>
+    </laneSet>
+    <scriptTask id="scripttask2" name="Domain Creation" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script>// Filename: DomainListCreation.groovy
+// Workflow: Check Out
+// Script Task: CrÃ©er la liste des domaines
+// Last Update: 2019-10-08
+
+import com.collibra.dgc.core.api.dto.instance.attribute.FindAttributesRequest
+import com.collibra.dgc.core.api.dto.instance.community.FindCommunitiesRequest
+import com.collibra.dgc.core.api.dto.instance.domain.FindDomainsRequest
+import com.collibra.dgc.core.exceptions.DGCException
+import com.collibra.dgc.core.api.component.instance.CommunityApi
+import java.util.*
+
+loggerApi.info('----Start of the script Create Domains List----')
+/*
+// Get community
+loggerApi.info('Community selected: '+ chosenCommunity)
+def communitySelected = communityApi.getCommunity(string2Uuid(chosenCommunity))
+
+
+
+loggerApi.info('communitySelected: '+ communitySelected)
+execution.setVariable('communitySelected', communitySelected)
+*/
+
+// Find Data Asset Domains
+def domainList = []
+UUID daDomainType = UUID.fromString("00000000-0000-0000-0000-000000030001")
+loggerApi.info('Data Asset Domain Type: '+ daDomainType)
+
+/*// Find all subcommunities
+def subcommunties = communityApi.findCommunities(FindCommunitiesRequest.builder()
+					.parentId(communitySelected.getId())
+					.build()).getResults()
+					
+loggerApi.info('subcommunities: '+ subcommunties)
+
+if(subcommunties == null){
+	loggerApi.info('There is no subcommunities')
+}
+else{
+	subcommunties.each {subcommunity -&gt;
+							domains = domainApi.findDomains(FindDomainsRequest.builder()
+									.communityId(subcommunity.getId())
+									.typeId(daAssetType)
+									.build()).getResults()
+									
+						loggerApi.info('domains: '+ domains)
+						
+						if(domains.size() != 0){
+							domainList &lt;&lt; domains
+						}
+					}
+
+	// Throw exception if no domain is found	
+	if(domainList == null){
+		def dgcError = new DGCException("ANo domains exist in  ${communitySelected.getName()}");
+		dgcError.setTitleCode('Error');
+		throw dgcError;
+	}
+							
+	loggerApi.info('Number of domains found: '+ domainList.size())
+	loggerApi.info('domainList: '+ domainList)
+}*/
+
+//Find all domains 
+def domains = domainApi.findDomains(FindDomainsRequest.builder()
+	.typeId(daDomainType)
+	.build()).getResults()
+	
+loggerApi.info('domains: '+ domains)
+	
+// Check each domain
+domains.each { domain -&gt;
+			domainList &lt;&lt; domain
+	}
+
+
+// Create list of domains within the chosen
+def domainsList = (domainList.collect {uuid2String(it.id)}).join(',')
+loggerApi.info('Number of domains found: '+ domainsList.size())
+loggerApi.info('Number of domains found: '+ domainsList)
+execution.setVariable('domainList', domainsList)
+
+loggerApi.info('----End of the script Create Domains List----')</script>
+    </scriptTask>
+    <userTask id="usertask2" name="Choose Domain " activiti:candidateUsers="{user(${startUser})}">
+      <extensionElements>
+        <activiti:formProperty id="datasetName" name="Dataset Name" type="string" required="true"></activiti:formProperty>
+        <activiti:formProperty id="chosenDomain" name="Domain" type="domain" variable="chosenDomain" required="true">
+          <activiti:value id="proposedFixed" name="true"></activiti:value>
+          <activiti:value id="proposedValues" name="${domainList}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="datasetDescription" name="Dataset Description " type="textarea" required="true"></activiti:formProperty>
+        <activiti:formProperty id="pointOfContact" name="Point of Contact" type="textarea" required="true"></activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="flow5" sourceRef="scripttask2" targetRef="usertask2"></sequenceFlow>
+    <scriptTask id="scripttask3" name="Create Dataset" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script>import com.collibra.dgc.core.api.dto.instance.asset.AddAssetRequest
+import com.collibra.dgc.core.api.dto.instance.community.AddCommunityRequest
+import com.collibra.dgc.core.api.dto.instance.domain.AddDomainRequest
+import com.collibra.dgc.core.api.dto.instance.domain.FindDomainsRequest
+import com.collibra.dgc.core.api.dto.meta.assettype.FindAssetTypesRequest
+import com.collibra.dgc.core.api.dto.meta.domaintype.FindDomainTypesRequest
+import com.collibra.dgc.core.api.model.instance.Domain
+import com.collibra.dgc.core.exceptions.DGCException
+
+
+//Create Data Set
+loggerApi.info("----Start of Dataset Creation----")
+
+loggerApi.info(datasetName)
+
+loggerApi.info(chosenDomain)
+
+def datasetID = "00000000-0000-0000-0001-000400000001"
+UUID datasetUUID = UUID.fromString(datasetID)
+
+
+/*def testDomain = domainApi.findDomains(FindDomainsRequest.builder()
+	.name(domainName)
+	.build()).getResults().id()
+loggerApi.info(TestDomain)
+*/
+loggerApi.info("Start of Propose Data Set workflow")
+
+
+def createdAsset = assetApi.addAsset(AddAssetRequest.builder()
+	.domainId(string2Uuid(chosenDomain))
+	.name(datasetName)
+	.typeId(datasetUUID)
+	.build())
+
+loggerApi.info("Dataset Created")
+</script>
+    </scriptTask>
+    <sequenceFlow id="flow10" sourceRef="usertask2" targetRef="scripttask3"></sequenceFlow>
+    <startEvent id="startevent1" name="Start" activiti:initiator="startUser">
+      <extensionElements>
+        <activiti:formProperty id="text1" name="Text 1 " type="string" default="Are you sure you want to create a Dataset?" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="button1" name="OK" type="button"></activiti:formProperty>
+      </extensionElements>
+    </startEvent>
+    <sequenceFlow id="flow11" sourceRef="startevent1" targetRef="scripttask2"></sequenceFlow>
+    <userTask id="usertask3" name="Add Responsabilities to Dataset" activiti:candidateUsers="{user(${startUser})}">
+      <extensionElements>
+        <activiti:formProperty id="businessStewardGroup" name="Select Business Stewards" type="user">
+          <activiti:value id="multiValue" name="true"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="ownerGroup" name="Select Owner" type="user">
+          <activiti:value id="multiValue" name="true"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="technicalStewardGroup" name="Select Technical Steward" type="user">
+          <activiti:value id="multiValue" name="true"></activiti:value>
+        </activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <scriptTask id="scripttask4" name="Script Task" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script>
+import com.collibra.dgc.core.api.dto.instance.responsibility.AddResponsibilityRequest
+import com.collibra.dgc.core.api.dto.instance.asset.FindAssetsRequest
+import com.collibra.dgc.core.api.dto.role.FindRolesRequest
+import com.collibra.dgc.core.api.dto.user.FindUsersRequest
+import com.collibra.dgc.core.api.model.ResourceType
+import com.collibra.dgc.core.exceptions.DGCException
+
+
+def businessStewardName = "Business Steward"
+def ownerName = "Owner"
+def techStewardName = "Technical Steward"
+
+UUID businessStewardID = roleApi.findRoles(FindRolesRequest.builder()
+	.name(businessStewardName)
+	.build()).getResults().id[0]
+loggerApi.info("Business Steward ID : " + businessStewardID)
+	
+UUID ownerID = roleApi.findRoles(FindRolesRequest.builder()
+	.name(ownerName)
+	.build()).getResults().id[0]
+loggerApi.info("OwnerID : " + ownerID)
+	
+UUID techStewardID = roleApi.findRoles(FindRolesRequest.builder()
+	.name(techStewardName)
+	.build()).getResults().id[0]
+loggerApi.info("Technical Steward ID : " + techStewardID)
+
+def dataset  = assetApi.findAssets(FindAssetsRequest.builder()
+	.name(datasetName)
+	.build()).getResults()
+	
+UUID datasetID = dataset.id[0]
+
+//def resourceType = ResourceType.valueOf(dataset.getType().toString())
+	
+loggerApi.info("Dataset: " + dataset)
+loggerApi.info("Dataset ID : " + datasetID)
+//loggerApi.info("Dataset Tyoe : " + resourceType)
+
+
+
+//Print statements
+loggerApi.info("----Start of script Assignation----")
+loggerApi.info("resourceId: ${datasetName}")
+loggerApi.info("Business Stewards : ${businessStewardGroup}")
+loggerApi.info("Owner : ${ownerGroup}")
+loggerApi.info("Technical Stewards : ${technicalStewardGroup}")
+
+//loggerApi.info("Role to name to assign:  ${roleName}")
+//loggerApi.info("Role UUID to assign: " + roleID)
+
+//Create list of business users 
+def bUsers = utilityV2.toList(businessStewardGroup)
+loggerApi.info("----The users are ${bUsers}.----")
+def List&lt;UUID&gt; bUserIds = []
+
+
+for(bUser in bUsers){
+	UUID bUserId = userApi.findUsers(FindUsersRequest.builder()
+		.name(bUser)
+		.build())
+		.getResults().id[0]
+						
+		loggerApi.info("User found: ${bUserId}")
+		bUserIds.add(bUserId)
+}
+
+loggerApi.info("The users to assign are ${bUserIds}")
+
+//Create list of Owners
+def oUsers = utilityV2.toList(ownerGroup)
+loggerApi.info("----The users are ${oUsers}.----")
+def List&lt;UUID&gt; oUserIds = []
+
+
+for(oUser in oUsers){
+	UUID oUserId = userApi.findUsers(FindUsersRequest.builder()
+		.name(oUser)
+		.build())
+		.getResults().id[0]
+						
+		loggerApi.info("o User found: ${oUserId}")
+		oUserIds.add(oUserId)
+}
+loggerApi.info("The o users to assign are ${oUserIds}")
+
+//Create list of technical users
+def tUsers = utilityV2.toList(technicalStewardGroup)
+loggerApi.info("----The users are ${tUsers}.----")
+def  List&lt;UUID&gt; tUserIds = []
+
+
+for(tUser in tUsers){
+	UUID tUserId = userApi.findUsers(FindUsersRequest.builder()
+		.name(tUser)
+		.build())
+		.getResults().id[0]
+						
+		loggerApi.info("User found: ${tUserId}")
+		tUserIds.add(tUserId)
+}
+loggerApi.info("The users to assign are ${tUserIds}")
+
+/*for(bUserId in bUserIds){
+	loggerApi.info("bUserId : " + bUserId + " roleID: " + businessStewardID + "AssetId : " + assetID)
+	  responsibilityApi.addResponsibility(AddResponsibilityRequest.builder()
+							 .ownerId(bUserId)
+							 .roleId(businessStewardID)
+							 .resourceId(assetID)
+							 .resourceType(resourceType)
+							 .build())
+} 
+loggerApi.info("We're here")
+for(oUserId in oUserIds){
+	responsibilityApi.addResponsibility(AddResponsibilityRequest.builder()
+						   .ownerId(oUserId)
+						   .roleId(ownerID)
+						   .resourceId(datasetID)
+						   .build())
+}
+
+for(tUserId in tUserIds){
+	responsibilityApi.addResponsibility(AddResponsibilityRequest.builder()
+						   .ownerId(tUserId)
+						   .roleId(techStewardID)
+						   .resourceId(assetID)
+						   .build())
+}*/
+
+loggerApi.info("End of Assigning responsabilities script task")
+</script>
+    </scriptTask>
+    <sequenceFlow id="flow17" sourceRef="usertask3" targetRef="scripttask4"></sequenceFlow>
+    <sequenceFlow id="flow23" sourceRef="scripttask3" targetRef="usertask3"></sequenceFlow>
+    <scriptTask id="scripttask5" name="Script Task" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script>import java.util.HashMap;
+import java.util.Map;
+
+loggerApi.info("Start Characteristics")
+def buildAndRegister = {
+    Map&lt;String, String&gt; languages = new HashMap&lt;String, String&gt;();
+    languages.put("Danish", "Danish");
+    languages.put("Dutch", "Dutch");
+    languages.put("English", "English");
+    languages.put("German", "German");
+    languages.put("Hebrew", "Hebrew");
+    languages.put("Norwegian", "Norwegian");
+    languages.put("Swedish", "Swedish");
+    languages.put("Other", "Other");
+    execution.setVariable("languages", languages)
+
+    Map&lt;String, String&gt; privacyClassifications = new HashMap&lt;String, String&gt;();
+    privacyClassifications.put("PII", "PII");
+    privacyClassifications.put("Sensitive Personal Information", "Sensitive Personal Information");
+    privacyClassifications.put("SPI", "SPI");
+    execution.setVariable("privacyClassifications", privacyClassifications)
+
+    Map&lt;String, String&gt; dataRefreshFrequencies = new HashMap&lt;String, String&gt;();
+    dataRefreshFrequencies.put("Ad-hoc/Need Based", "Ad-hoc/Need Based");
+    dataRefreshFrequencies.put("Annually", "Annually");
+    dataRefreshFrequencies.put("Daily", "Daily");
+    dataRefreshFrequencies.put("Every 15 Minutes", "Every 15 Minutes");
+    dataRefreshFrequencies.put("Every Minute", "Every Minute");
+    dataRefreshFrequencies.put("Every Second", "Every Second");
+    dataRefreshFrequencies.put("Hourly", "Hourly");
+    dataRefreshFrequencies.put("Monthly", "Monthly");
+    dataRefreshFrequencies.put("One-Time", "One-Time");
+    dataRefreshFrequencies.put("Quarterly", "Quarterly");
+    dataRefreshFrequencies.put("Variable", "Variable");
+    dataRefreshFrequencies.put("Unknown", "Unknown");
+    dataRefreshFrequencies.put("Weekly", "Weekly");
+    dataRefreshFrequencies.put("Yearly", "Yearly");
+    execution.setVariable("dataRefreshFrequencies", dataRefreshFrequencies)
+}
+
+loggerApi.info("End Char")
+
+buildAndRegister();</script>
+    </scriptTask>
+    <userTask id="usertask4" name="Add characteristics " activiti:candidateUsers="{user(${startUser})}">
+      <extensionElements>
+        <activiti:formProperty id="descriptionForm" name="Description Form" type="string"></activiti:formProperty>
+        <activiti:formProperty id="dataSourceForm" name="Data Source Form" type="string"></activiti:formProperty>
+        <activiti:formProperty id="dataProviderForm" name="Data Provider Form" type="string"></activiti:formProperty>
+        <activiti:formProperty id="geographyForm" name="Geography Form" type="string"></activiti:formProperty>
+        <activiti:formProperty id="rawDataLocationForm" name="Raw Data Location Form" type="string"></activiti:formProperty>
+        <activiti:formProperty id="lastUpdateDateForm" name="Last Update Date" type="string"></activiti:formProperty>
+        <activiti:formProperty id="accessRestrictionsForm" name="Access Restrictions" type="string" default="Description" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="accessRestrictionsName" name="Access RestrictionsName" type="string" default="AccessRestrictions" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="lastUpdateDateName" name="Last Update Date" type="string" default="Last Update Date " readable="false"></activiti:formProperty>
+        <activiti:formProperty id="rawDataLocationName" name="Raw Data Location" type="string" default="Raw Data Location" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="geographyName" name="Geography Name" type="string" default="Geography Name" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="dataProviderName" name="Data Provider Name" type="string" default="Data Provider Name" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="dataSourceName" name="Data Source Name" type="string" default="Data Source Name" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="dataLanguageName" name="Data Language Name" type="dynamicCheckbox" default="Data Language Name" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="dataLanguageForm" name="Data Language Form" type="dynamicCheckbox">
+          <activiti:value id="dynamicValuesExpression" name="${languages}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="privacyClassificationForm" name="Privacy Classification Form" type="dynamicCheckbox"></activiti:formProperty>
+        <activiti:formProperty id="privacyClassificationName" name="Privacy Classification Name" type="dynamicCheckbox" default="Privacy Classification Name">
+          <activiti:value id="dynamicValuesExpression" name="${privacyClassifications}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="dataRefreshFrequencyName" name="Data Refresh Frequency" type="dynamicCheckbox" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="dataRefreshFrequencyForm" name="Data Refresh Frequency Form" type="dynamicCheckbox" default="Data Refresh Frequency">
+          <activiti:value id="dynamicValuesExpression" name="${dataRefreshFrequencies}"></activiti:value>
+        </activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <scriptTask id="scripttask6" name="Script Task" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script>// Filename: attributesForm.groovy
+// Workflow: Status Change
+// Script Task: Populate Attribute Fields
+// Last Update: 2020-09-23
+
+import com.collibra.dgc.core.api.dto.instance.attribute.AddAttributeRequest
+
+def attributesNameList= [descriptionName, dataSourceName, dataProviderName, geographyName,
+                         rawDataLocationName, lastUpdateDateName, accessRestrictionsName,
+                         dataLanguageName, privacyClassificationName, dataRefreshFrequencyName]
+def attributesFormList= [descriptionForm, dataSourceForm, dataProviderForm, geographyForm,
+                         rawDataLocationForm, lastUpdateDateForm, accessRestrictionsForm,
+                         dataLanguageForm, privacyClassificationForm, dataRefreshFrequencyForm]
+
+for(i = 0; i &lt; attributesFormList.size(); i++) {
+    attributeApi.addAttribute(AddAttributeRequest.builder()
+            .assetId(itemV2.id)
+            .typeId(attributeTypeApi.getAttributeTypeByName(attributesNameList[i]).getId())
+            .value(attributesFormList[i])
+            .build())
+}</script>
+    </scriptTask>
+    <endEvent id="endevent1" name="End"></endEvent>
+    <sequenceFlow id="flow24" sourceRef="scripttask4" targetRef="scripttask5"></sequenceFlow>
+    <sequenceFlow id="flow25" sourceRef="scripttask5" targetRef="usertask4"></sequenceFlow>
+    <sequenceFlow id="flow26" sourceRef="usertask4" targetRef="scripttask6"></sequenceFlow>
+    <sequenceFlow id="flow27" sourceRef="scripttask6" targetRef="endevent1"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Collaboration">
+    <bpmndi:BPMNPlane bpmnElement="Collaboration" id="BPMNPlane_Collaboration">
+      <bpmndi:BPMNShape bpmnElement="pool1" id="BPMNShape_pool1">
+        <omgdc:Bounds height="300.0" width="1531.0" x="20.0" y="140.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="lane1" id="BPMNShape_lane1">
+        <omgdc:Bounds height="300.0" width="1511.0" x="40.0" y="140.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask2" id="BPMNShape_scripttask2">
+        <omgdc:Bounds height="55.0" width="105.0" x="210.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="usertask2" id="BPMNShape_usertask2">
+        <omgdc:Bounds height="55.0" width="105.0" x="360.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask3" id="BPMNShape_scripttask3">
+        <omgdc:Bounds height="55.0" width="105.0" x="510.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="startevent1" id="BPMNShape_startevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="120.0" y="270.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="usertask3" id="BPMNShape_usertask3">
+        <omgdc:Bounds height="55.0" width="105.0" x="650.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask4" id="BPMNShape_scripttask4">
+        <omgdc:Bounds height="55.0" width="105.0" x="800.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask5" id="BPMNShape_scripttask5">
+        <omgdc:Bounds height="55.0" width="105.0" x="950.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="usertask4" id="BPMNShape_usertask4">
+        <omgdc:Bounds height="55.0" width="105.0" x="1090.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask6" id="BPMNShape_scripttask6">
+        <omgdc:Bounds height="55.0" width="105.0" x="1230.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent1" id="BPMNShape_endevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="1405.0" y="360.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="flow5" id="BPMNEdge_flow5">
+        <omgdi:waypoint x="315.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="360.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow10" id="BPMNEdge_flow10">
+        <omgdi:waypoint x="465.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="510.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow11" id="BPMNEdge_flow11">
+        <omgdi:waypoint x="155.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="210.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow17" id="BPMNEdge_flow17">
+        <omgdi:waypoint x="755.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="800.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow23" id="BPMNEdge_flow23">
+        <omgdi:waypoint x="615.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="650.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow24" id="BPMNEdge_flow24">
+        <omgdi:waypoint x="905.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="950.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow25" id="BPMNEdge_flow25">
+        <omgdi:waypoint x="1055.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1090.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow26" id="BPMNEdge_flow26">
+        <omgdi:waypoint x="1195.0" y="287.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1230.0" y="287.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow27" id="BPMNEdge_flow27">
+        <omgdi:waypoint x="1282.0" y="315.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1422.0" y="360.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
